@@ -110,46 +110,58 @@ Skupovi podataka i PAF datoteke nisu uključeni u repozitorij zbog njihove veli�
 
 ## Konfiguracija i pokretanje
 
-Eksperiment se konfigurira na početku datoteke `scripts/main_simulator.py`. Glavne postavke su:
+*promijeniti 
 
-```python
-BUCKET_SIZE = 5000
-DATASET = "2b4s"
-OZNAKA = "c1"
-USE_CIGAR = True
+## Struktura generiranih izlaza
 
-RUN_MAIN_REDISTRIBUTION = True
-RUN_CLEANUP = True
-USE_CLEANUP_DRAINAGE = True
-```
+Za svako pokretanje program izrađuje zasebnu mapu unutar direktorija `results/`. Njezin naziv sastavlja se iz veličine pretinca, odabranog skupa podataka, oznake uzorka i naziva eksperimenta:
 
-Podržane oznake skupova u trenutačnoj implementaciji su `2b4s`, `5b15s` i `5b15s_add`. Očekivane putanje do ulaznih datoteka definirane su u istoj datoteci i moraju odgovarati lokalnoj strukturi mapa.
+```text
+results/bucket{veličina}_{skup}_{oznaka}_{eksperiment}/
 
-Program se pokreće iz korijenske mape repozitorija:
+Primjer:
 
-```bash
-python scripts/main_simulator.py
-```
+results/bucket5000_2b4s_c1_finalno/
 
-## Rezultati
+Generirani izlazi organizirani su u po mapama:
+results/bucket5000_2b4s_c1_finalno/
+├── profile_kbp/
+└── statistika/
+    ├── osnovno/
+    ├── dodatno/
+    └── summaries/
+├── usporedba/
 
-Za svako pokretanje program izrađuje zasebnu mapu unutar `results/`. Naziv mape uključuje veličinu pretinca, skup podataka, oznaku uzorka i naziv eksperimenta.
+### Grafovi profila pokrivenosti
+U mapi profile_kbp nalaze se grafovi za sve genome, ali odvojeno:
+- profil pokrivenosti dobiven iz simulatora
+- profil nakon početne diskretne dodjele
+- konačan profil (nakon glavne preraspodjele i faze čišćenja - ovisi kako se uključi u eksperimentu)
 
-Generirani izlazi obuhvaćaju:
+U mapi usporedba nalaze se za svaki genom po tri spomenuta grafa, spojena u jednu sliku.
 
-- profile pokrivenosti simulatora, početne dodjele i završne preraspodjele;
-- složene grafove za izravnu usporedbu profila;
-- osnovne statistike pokrivenosti;
-- usporedbu broja dodijeljenih očitanja;
-- udaljenosti profila od simuliranog stanja;
-- evaluaciju dodjele za prave i lažne genome;
-- sažetke glavne preraspodjele i cleanup faze.
+### Statistike
+Mapa statistika/osnovno/ sadrži tekstualne izvještaje s osnovnim podatcima o profilima pokrivenosti za svaki genom.
 
-## Napomena o evaluaciji
+Mapa `statistika/dodatno/` sadrži detaljniju usporedbu početnog i konačnog stanja (korišteno tijekom izrade rada):
 
-Informacije iz FASTQ zaglavlja koriste se samo za izradu referentne pokrivenosti i naknadnu evaluaciju. Algoritam preraspodjele ne koristi poznati izvor očitanja pri donošenju odluka.
+- `redistribution_comparison.txt` – usporedba broja očitanja i osnovnih statistika pokrivenosti
+- `coverage_distance_to_simulator.txt` – MAE i RMSE profila pravih genoma u odnosu na simulator
+- `false_genome_coverage_stats.txt` – analiza pokrivenosti genoma koji nisu prisutni u simuliranom uzorku
+- `assignment_evaluation/` – evaluacija točnosti dodjele pojedinačnih očitanja prema poznatom podrijetlu iz simulatora
+
+Podmapa `assignment_evaluation/` sadrži detaljnu tablicu po očitanju, matricu zamjene genoma, tablicu rezultata po genomu i tekstualni sažetak evaluacije (korišteno u konačnim rezultatima rada).
+
+Mapa `statistika/summaries/` sadrži sažetke ulaznog skupa i pojedinih faza obrade:
+
+- `genome_truth_summary.txt` – popis pravih i lažnih genoma prema simulatoru
+- `summary_init_assign.txt` – sažetak početne diskretne dodjele očitanja
+- `redistribution_summary.txt` – parametri, iteracije i premještanja glavnog algoritma
+- `cleanup_simple_summary.txt` – sumnjivi genomi, vrijednosti cleanup signala i provedena premještanja
+
+> **Napomena:** Modul `evaluate_cleanup_truth.py` namijenjen je dodatnoj evaluaciji cleanup faze. Ne poziva se automatski iz skripte `main_simulator.py`, pa se pripadajući izvještaj ne generira pri standardnom pokretanju programa.
 
 ## Autorica
 
-Katarina Benčun
+Katarina Bencun
 
