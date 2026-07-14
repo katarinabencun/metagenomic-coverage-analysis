@@ -110,20 +110,51 @@ Skupovi podataka i PAF datoteke nisu uključeni u repozitorij zbog njihove veli�
 
 ## Konfiguracija i pokretanje
 
-*promijeniti 
+Program se pokreće iz korijenske mape projekta. Obavezno je navesti putanje do ulaznih FASTQ, FASTA i PAF datoteka:
+
+```bash
+python scripts/main_simulator.py \
+  --fastq "putanja/do/ocitanja.fastq" \
+  --fasta "putanja/do/referentne_baze.fasta" \
+  --paf "putanja/do/mapiranja.paf" \
+  --bucket-size 5000 \
+  --experiment-name naziv_eksperimenta
+```
+
+Putanje mogu biti relativne ili apsolutne, pa ulazne datoteke ne moraju biti spremljene unutar repozitorija.
+
+Dodatnim argumentima moguće je promijeniti izvođenje:
+
+- `--without-cigar` – koristi PAF bez CIGAR zapisa
+- `--skip-redistribution` – preskače glavnu preraspodjelu
+- `--skip-cleanup` – preskače cleanup fazu
+- `--without-drainage` – isključuje drainage signal
+
+Ako se ne navedu, zadana veličina pretinca iznosi 5000 bp, a izvode se glavna preraspodjela, cleanup faza i drainage signal. Svi dostupni argumenti mogu se prikazati naredbom:
+
+```bash
+python scripts/main_simulator.py --help
+```
 
 ## Struktura generiranih izlaza
 
-Za svako pokretanje program izrađuje zasebnu mapu unutar direktorija `results/`. Njezin naziv sastavlja se iz veličine pretinca, odabranog skupa podataka, oznake uzorka i naziva eksperimenta:
+Za svako pokretanje program izrađuje zasebnu mapu unutar direktorija `results/`. Njezin naziv sastavlja se iz veličine pretinca i naziva eksperimenta zadanog argumentom `--experiment-name`:
 
 ```text
-results/bucket{veličina}_{skup}_{oznaka}_{eksperiment}/
+results/bucket{veličina_pretinca}_{naziv_eksperimenta}/
+```
 
 Primjer:
 
+```text
 results/bucket5000_2b4s_c1_finalno/
+```
 
-Generirani izlazi organizirani su u po mapama:
+Naziv `2b4s_c1_finalno` u tom primjeru cijeli je tekst koji korisnik preda kroz `--experiment-name`.
+
+Također, generirani izlazi organizirani su u sljedeće mape:
+
+```text
 results/bucket5000_2b4s_c1_finalno/
 ├── profile_kbp/
 └── statistika/
@@ -131,26 +162,29 @@ results/bucket5000_2b4s_c1_finalno/
     ├── dodatno/
     └── summaries/
 ├── usporedba/
+```
 
 ### Grafovi profila pokrivenosti
 U mapi profile_kbp nalaze se grafovi za sve genome, ali odvojeno:
+
 - profil pokrivenosti dobiven iz simulatora
 - profil nakon početne diskretne dodjele
-- konačan profil (nakon glavne preraspodjele i faze čišćenja - ovisi kako se uključi u eksperimentu)
+- konačan profil nakon uključenih faza preraspodjele i čišćenja
 
-U mapi usporedba nalaze se za svaki genom po tri spomenuta grafa, spojena u jednu sliku.
+U mapi `usporedba/` nalaze se za svaki genom po tri spomenuta grafa, spojena u jednu sliku.
 
 ### Statistike
-Mapa statistika/osnovno/ sadrži tekstualne izvještaje s osnovnim podatcima o profilima pokrivenosti za svaki genom.
 
-Mapa `statistika/dodatno/` sadrži detaljniju usporedbu početnog i konačnog stanja (korišteno tijekom izrade rada):
+Mapa `statistika/osnovno/` sadrži izvještaj s osnovnim podatcima o profilima pokrivenosti nakon početne dodjele i njihovom usporedbom sa simulatorom.
+
+Mapa `statistika/dodatno/` sadrži detaljniju evaluaciju početnog i konačnog stanja:
 
 - `redistribution_comparison.txt` – usporedba broja očitanja i osnovnih statistika pokrivenosti
 - `coverage_distance_to_simulator.txt` – MAE i RMSE profila pravih genoma u odnosu na simulator
 - `false_genome_coverage_stats.txt` – analiza pokrivenosti genoma koji nisu prisutni u simuliranom uzorku
 - `assignment_evaluation/` – evaluacija točnosti dodjele pojedinačnih očitanja prema poznatom podrijetlu iz simulatora
 
-Podmapa `assignment_evaluation/` sadrži detaljnu tablicu po očitanju, matricu zamjene genoma, tablicu rezultata po genomu i tekstualni sažetak evaluacije (korišteno u konačnim rezultatima rada).
+Podmapa `assignment_evaluation/` sadrži detaljnu tablicu po očitanju, matricu zamjene genoma, tablicu rezultata po genomu i tekstualni sažetak evaluacije.
 
 Mapa `statistika/summaries/` sadrži sažetke ulaznog skupa i pojedinih faza obrade:
 

@@ -1,4 +1,5 @@
 import os
+import argparse
 
 from statistika import (
     count_reads_simulator,
@@ -39,84 +40,125 @@ from algoritam_preraspodjele import (
     write_cleanup_simple_summary,
 )
 
-
-BUCKET_SIZE = 5000 # radim s 1000 i 5000
-DATASET = "2b4s"   # radim s 2b4s, 5b15s i 5b15s_add
-OZNAKA = "c1"      # radim s c1 i c4 za 2b4s, a za 5b15s i 5b15s_add samo s c4
-USE_CIGAR = True   # True = mapping_c1_cigar.paf, False = mapping_c1.paf
-EXPERIMENT_NAME = "finalno"  # "samo_preraspodjela", "preraspodjela_cleanup", "sve" = preraspodjela_cleanup_drainage
-
-RUN_MAIN_REDISTRIBUTION = True
-RUN_CLEANUP = True
-USE_CLEANUP_DRAINAGE = True
-
-RUN_NAME = f"bucket{BUCKET_SIZE}_{DATASET}_{OZNAKA}_{EXPERIMENT_NAME}"
-RESULTS_DIR = f"results/{RUN_NAME}"
-
-DATASET_DIR = f"data/{DATASET}/{DATASET}"
-SAMPLE_DIR = f"{DATASET_DIR}/{OZNAKA}"
-
-if DATASET == "2b4s":
-    FASTQ_PATH = f"{SAMPLE_DIR}/2bacteria4strains_{OZNAKA}.fastq"
-
-    if OZNAKA == "c1":
-        FASTA_PATH = f"{SAMPLE_DIR}/2bacteria4strains_c1.reduced_db.fa"
-    elif OZNAKA == "c4":
-        # nema posebne c4 reducirane baze, koristi istu reduciranu bazu iz c1.
-        FASTA_PATH = f"{DATASET_DIR}/c1/2bacteria4strains_c1.reduced_db.fa"
-    else:
-        raise ValueError(f"Nepoznata OZNAKA za DATASET={DATASET}: {OZNAKA}")
-
-elif DATASET == "5b15s":
-    FASTQ_PATH = f"{SAMPLE_DIR}/5bacteria15strains_{OZNAKA}.fastq.gz"
-    FASTA_PATH = f"{SAMPLE_DIR}/5bacteria15strains_{OZNAKA}.reduced_db.fasta"
-
-elif DATASET == "5b15s_add":
-    FASTQ_PATH = f"{SAMPLE_DIR}/5bacteria15strains_additional_{OZNAKA}.fastq.gz"
-    FASTA_PATH = f"{SAMPLE_DIR}/5bacteria15strains_additional_{OZNAKA}.reduced_db.fa"
-
-else:
-    raise ValueError(f"Nepoznat DATASET: {DATASET}")
-
-PAF_PATH = f"minimap_output/{DATASET}/mapping_{OZNAKA}.paf"
-PAF_CIGAR_PATH = f"minimap_output/{DATASET}/mapping_{OZNAKA}_cigar.paf"
-
-ACTIVE_PAF_PATH = PAF_CIGAR_PATH if USE_CIGAR else PAF_PATH
-
-STATISTIKA_DIR = f"{RESULTS_DIR}/statistika"
-STATISTIKA_OSNOVNO_DIR = f"{STATISTIKA_DIR}/osnovno"
-STATISTIKA_DODATNO_DIR = f"{STATISTIKA_DIR}/dodatno"
-STATISTIKA_SUMMARYS_DIR = f"{STATISTIKA_DIR}/summaries"
-
-
-def compute_assignment_coverage(assignments):
+def compute_assignment_coverage(assignments, use_cigar, bucket_size):
     """
     Računa coverage iz dodjela, ovisno o tome koristi li se CIGAR ili ne.
     Kasnija logika pipelinea ostaje ista.
     """
-    if USE_CIGAR:
+    if use_cigar:
         return compute_coverage_from_assignments_cigar(
             assignments,
-            bucket_size=BUCKET_SIZE
+            bucket_size=bucket_size
         )
 
     return compute_coverage_from_assignments(
         assignments,
-        bucket_size=BUCKET_SIZE
+        bucket_size=bucket_size
     )
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description="Analiza pokrivenosti i preraspodjela metagenomskih očitanja."
+    )
+
+    parser.add_argument(
+        "--fastq",
+        required=True,
+        help="Putanja do FASTQ datoteke simuliranih očitanja."
+    )
+
+    parser.add_argument(
+        "--fasta",
+        required=True,
+        help="Putanja do FASTA datoteke referentnih genoma."
+    )
+
+    parser.add_argument(
+        "--paf",
+        required=True,
+        help="Putanja do PAF datoteke s mapiranjima."
+    )
+
+    parser.add_argument(
+        "--bucket-size",
+        type=int,
+        default=5000,
+        help="Veličina pretinca u baznim parovima. Zadano: 5000."
+    )
+
+    parser.add_argument(
+        "--experiment-name",
+        default="experiment",
+        help="Naziv eksperimenta i izlazne mape."
+    )
+
+    parser.add_argument(
+        "--without-cigar",
+        action="store_true",
+        help="PAF datoteka ne sadrži CIGAR zapis."
+    )
+
+    parser.add_argument(
+        "--skip-redistribution",
+        action="store_true",
+        help="Preskače glavnu preraspodjelu."
+    )
+
+    parser.add_argument(
+        "--skip-cleanup",
+        action="store_true",
+        help="Preskače cleanup fazu."
+    )
+
+    parser.add_argument(
+        "--without-drainage",
+        action="store_true",
+        help="Isključuje drainage signal u cleanup fazi."
+    )
+
+    return parser.parse_args()
 
 def main():
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    args = parse_arguments()
 
-    genome_lengths = get_genome_lengths(FASTA_PATH)
+    fastq_path = args.fastq
+    fasta_path = args.fasta
+    paf_path = args.paf
+    bucket_size = args.bucket_size
+
+    # Provjera postoje li zadane ulazne datoteke
+    for input_path in (fastq_path, fasta_path, paf_path):
+        if not os.path.isfile(input_path):
+            raise FileNotFoundError(
+                f"Ulazna datoteka ne postoji: {input_path}"
+            )
+
+    use_cigar = not args.without_cigar
+    run_main_redistribution = not args.skip_redistribution
+    run_cleanup = not args.skip_cleanup
+    use_cleanup_drainage = not args.without_drainage
+
+    results_dir = f"results/bucket{bucket_size}_{args.experiment_name}"
+
+    statistika_dir = f"{results_dir}/statistika"
+    statistika_osnovno_dir = f"{statistika_dir}/osnovno"
+    statistika_dodatno_dir = f"{statistika_dir}/dodatno"
+    statistika_summaries_dir = f"{statistika_dir}/summaries"
+
+    os.makedirs(results_dir, exist_ok=True)
+    os.makedirs(statistika_dir, exist_ok=True)
+    os.makedirs(statistika_osnovno_dir, exist_ok=True)
+    os.makedirs(statistika_dodatno_dir, exist_ok=True)
+    os.makedirs(statistika_summaries_dir, exist_ok=True)
+
+    genome_lengths = get_genome_lengths(fasta_path)
 
     # 1. Simulator / FASTQ
-    reads_sim = list(parse_fastq(FASTQ_PATH))
+    reads_sim = list(parse_fastq(fastq_path))
 
     coverage_sim = compute_coverage_from_intervals(
         reads_sim,
-        bucket_size=BUCKET_SIZE
+        bucket_size=bucket_size
     )
 
     sim_counts = count_reads_simulator(reads_sim)
@@ -124,22 +166,22 @@ def main():
     sim_stats = coverage_stats(
         coverage_sim,
         genome_lengths,
-        bucket_size=BUCKET_SIZE
+        bucket_size=bucket_size
     )
 
     plot_coverage_profile_kbp(
         coverage_sim,
         genome_lengths,
-        bucket_size=BUCKET_SIZE,
+        bucket_size=bucket_size,
         output_prefix=f"sim",
-        output_dir=f"{RESULTS_DIR}/profile_kbp"
+        output_dir=f"{results_dir}/profile_kbp"
     )
 
     # 2. Minimap2 / PAF best-MAPQ
-    if USE_CIGAR:
-        grouped_reads = parse_paf_grouped_with_cigar(ACTIVE_PAF_PATH)
+    if use_cigar:
+        grouped_reads = parse_paf_grouped_with_cigar(paf_path)
     else:
-        grouped_reads = parse_paf_grouped(ACTIVE_PAF_PATH)
+        grouped_reads = parse_paf_grouped(paf_path)
 
     seed = 42
 
@@ -151,29 +193,31 @@ def main():
     initial_counts = assignment_counts(initial_assignments)
 
     initial_assignment_coverage = compute_assignment_coverage(
-        initial_assignments
+        initial_assignments,
+        use_cigar=use_cigar,
+        bucket_size=bucket_size
     )
 
     initial_stats = coverage_stats(
         initial_assignment_coverage,
         genome_lengths,
-        bucket_size=BUCKET_SIZE
+        bucket_size=bucket_size
     )
 
     plot_coverage_profile_kbp(
         initial_assignment_coverage,
         genome_lengths,
-        bucket_size=BUCKET_SIZE,
+        bucket_size=bucket_size,
         output_prefix="initial_assignment",
-        output_dir=f"{RESULTS_DIR}/profile_kbp"
+        output_dir=f"{results_dir}/profile_kbp"
     )
 
-    if RUN_MAIN_REDISTRIBUTION:
+    if run_main_redistribution:
         final_assignments, redistribution_summary = redistribute_algorithm(
             initial_assignments=initial_assignments,
             grouped_reads=grouped_reads,
             genome_lengths=genome_lengths,
-            bucket_size=BUCKET_SIZE,
+            bucket_size=bucket_size,
 
             max_iterations=10,
             support_weight=1.0,
@@ -193,12 +237,12 @@ def main():
             "total_moves": 0,
         }
 
-    if RUN_CLEANUP:
+    if run_cleanup:
         final_assignments, cleanup_summary = cleanup_simple(
             assignments=final_assignments,
             grouped_reads=grouped_reads,
             genome_lengths=genome_lengths,
-            bucket_size=BUCKET_SIZE,
+            bucket_size=bucket_size,
 
             suspicion_threshold=0.05,
 
@@ -218,7 +262,7 @@ def main():
 
             # signal pražnjenja
             baseline_assignments=initial_assignments,
-            use_drainage_signal=USE_CLEANUP_DRAINAGE,
+            use_drainage_signal=use_cleanup_drainage,
             drainage_rel_rmse_drop_start=0.10,
             drainage_rel_rmse_drop_full=0.20, #bilo je na 0.25 sasvim ok,
 
@@ -243,21 +287,23 @@ def main():
     final_counts = assignment_counts(final_assignments)
 
     final_coverage = compute_assignment_coverage(
-        final_assignments
+        final_assignments,
+        use_cigar=use_cigar,
+        bucket_size=bucket_size
     )
 
     final_stats = coverage_stats(
         final_coverage,
         genome_lengths,
-        bucket_size=BUCKET_SIZE
+        bucket_size=bucket_size
     )
 
     plot_coverage_profile_kbp(
         final_coverage,
         genome_lengths,
-        bucket_size=BUCKET_SIZE,
+        bucket_size=bucket_size,
         output_prefix="final_redistribution",
-        output_dir=f"{RESULTS_DIR}/profile_kbp"
+        output_dir=f"{results_dir}/profile_kbp"
     )
 
     plot_coverage_comparison_stacked_kbp(
@@ -265,34 +311,34 @@ def main():
         coverage_initial=initial_assignment_coverage,
         coverage_final=final_coverage,
         genome_lengths=genome_lengths,
-        bucket_size=BUCKET_SIZE,
-        output_dir=f"{RESULTS_DIR}/usporedba"
+        bucket_size=bucket_size,
+        output_dir=f"{results_dir}/usporedba"
     )
 
     # 3. Statistika
     write_genome_truth_summary(
         sim_counts=sim_counts,
         genome_lengths=genome_lengths,
-        output_dir=f"{STATISTIKA_SUMMARYS_DIR}",
+        output_dir=statistika_summaries_dir,
         filename="genome_truth_summary.txt"
     )
 
     write_initial_assignment_summary(
         grouped_reads,
         initial_assignments,
-        output_dir=f"{STATISTIKA_SUMMARYS_DIR}",
+        output_dir=statistika_summaries_dir,
         filename="summary_init_assign.txt"
     )
 
     write_redistribution_summary(
         redistribution_summary,
-        output_dir=f"{STATISTIKA_SUMMARYS_DIR}",
+        output_dir=statistika_summaries_dir,
         filename="redistribution_summary.txt"
     )
 
     write_cleanup_simple_summary(
         cleanup_summary,
-        output_dir=f"{STATISTIKA_SUMMARYS_DIR}",
+        output_dir=statistika_summaries_dir,
         filename="cleanup_simple_summary.txt"
     )
 
@@ -301,8 +347,8 @@ def main():
         paf_counts=initial_counts,
         sim_stats=sim_stats,
         paf_stats=initial_stats,
-        bucket_size=BUCKET_SIZE,
-        output_dir=f"{STATISTIKA_OSNOVNO_DIR}",
+        bucket_size=bucket_size,
+        output_dir=statistika_osnovno_dir,
         filename="statistics.txt"
     )
 
@@ -313,8 +359,8 @@ def main():
         sim_stats=sim_stats,
         initial_stats=initial_stats,
         final_stats=final_stats,
-        bucket_size=BUCKET_SIZE,
-        output_dir=f"{STATISTIKA_DODATNO_DIR}",
+        bucket_size=bucket_size,
+        output_dir=statistika_dodatno_dir,
         filename="redistribution_comparison.txt"
     )
 
@@ -323,8 +369,8 @@ def main():
         coverage_initial=initial_assignment_coverage,
         coverage_final=final_coverage,
         genome_lengths=genome_lengths,
-        bucket_size=BUCKET_SIZE,
-        output_dir=f"{STATISTIKA_DODATNO_DIR}",
+        bucket_size=bucket_size,
+        output_dir=statistika_dodatno_dir,
         filename="coverage_distance_to_simulator.txt"
     )
 
@@ -333,20 +379,20 @@ def main():
         coverage_initial=initial_assignment_coverage,
         coverage_final=final_coverage,
         genome_lengths=genome_lengths,
-        bucket_size=BUCKET_SIZE,
-        output_dir=f"{STATISTIKA_DODATNO_DIR}",
+        bucket_size=bucket_size,
+        output_dir=statistika_dodatno_dir,
         filename="false_genome_coverage_stats.txt"
     )
 
     write_full_assignment_evaluation(
-        fastq_path=FASTQ_PATH,
+        fastq_path=fastq_path,
         initial_assignments=initial_assignments,
         final_assignments=final_assignments,
         genome_lengths=genome_lengths,
-        output_dir=f"{STATISTIKA_DODATNO_DIR}/assignment_evaluation"
+        output_dir=f"{statistika_dodatno_dir}/assignment_evaluation"
     )
 
-    print(f"Rezultati spremljeni u: {RESULTS_DIR}")
+    print(f"Rezultati spremljeni u: {results_dir}")
 
 if __name__ == "__main__":
     main()
