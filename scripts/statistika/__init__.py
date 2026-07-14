@@ -35,4 +35,5 @@ from statistika.assignment_evaluation import (
 
 from statistika.evaluate_cleanup_truth import (
     write_cleanup_truth_evaluation,
+    organize_cleanup_comparison_images,
 )

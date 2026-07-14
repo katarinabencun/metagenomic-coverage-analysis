@@ -161,6 +161,11 @@ results/bucket5000_2b4s_c1_finalno/
     ├── dodatno/
     └── summaries/
 ├── usporedba/
+│   └── cleanup/
+│       ├── true_positive/
+│       ├── false_positive/
+│       ├── false_negative/
+│       └── true_negative/
 ```
 
 ### Grafovi profila pokrivenosti
@@ -170,7 +175,9 @@ U mapi `profile_kbp/` nalaze se grafovi za sve genome, ali odvojeno:
 - profil nakon početne diskretne dodjele
 - konačan profil nakon uključenih faza preraspodjele i čišćenja
 
-U mapi `usporedba/` nalaze se za svaki genom po tri spomenuta grafa, spojena u jednu sliku.
+U mapi `usporedba/` za svaki se genom nalazi jedna slika koja sadrži sva tri profila, prikazana jedan ispod drugoga.
+
+Ako je cleanup faza uključena, iste se slike dodatno kopiraju u podmapu `usporedba/cleanup/` i razvrstavaju u `true_positive`, `false_positive`, `false_negative` i `true_negative` prema usporedbi cleanup odluke s poznatim stanjem iz simulatora.
 
 ### Statistike
 

@@ -11,6 +11,7 @@ from statistika import (
     write_genome_truth_summary,
     write_full_assignment_evaluation,
     write_cleanup_truth_evaluation,
+    organize_cleanup_comparison_images,
 )
 
 from parse_i_coverage import (
@@ -315,6 +316,14 @@ def main():
         bucket_size=bucket_size,
         output_dir=f"{results_dir}/usporedba"
     )
+
+    if run_cleanup:
+        organize_cleanup_comparison_images(
+            sim_counts=sim_counts,
+            genome_lengths=genome_lengths,
+            cleanup_summary=cleanup_summary,
+            comparison_dir=f"{results_dir}/usporedba"
+        )
 
     # 3. Statistika
     write_genome_truth_summary(

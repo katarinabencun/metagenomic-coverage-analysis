@@ -1,5 +1,66 @@
 import os
+import shutil
 
+def organize_cleanup_comparison_images(
+    sim_counts,
+    genome_lengths,
+    cleanup_summary,
+    comparison_dir
+):
+    """
+    Kopira postojeće usporedne grafove u podmape prema rezultatu
+    evaluacije cleanup faze.
+    """
+    truth = {
+        genome_id: (
+            "true"
+            if sim_counts.get(genome_id, 0) > 0
+            else "false"
+        )
+        for genome_id in genome_lengths
+    }
+
+    suspicious = set(
+        cleanup_summary.get("suspicious_genomes", [])
+    )
+
+    result = evaluate_cleanup_against_truth(
+        truth=truth,
+        suspicious=suspicious
+    )
+
+    cleanup_dir = os.path.join(comparison_dir, "cleanup")
+
+    categories = {
+        "true_positive": result["true_positives"],
+        "false_positive": result["false_positives"],
+        "false_negative": result["false_negatives"],
+        "true_negative": result["true_negatives"],
+    }
+
+    for category, genome_ids in categories.items():
+        category_dir = os.path.join(cleanup_dir, category)
+        os.makedirs(category_dir, exist_ok=True)
+
+        # Uklanjanje starih kopija ako se eksperiment ponovno pokrene
+        for filename in os.listdir(category_dir):
+            if filename.endswith("_usporedba.png"):
+                os.remove(os.path.join(category_dir, filename))
+
+        for genome_id in genome_ids:
+            filename = f"{genome_id}_usporedba.png"
+            source_path = os.path.join(comparison_dir, filename)
+            destination_path = os.path.join(category_dir, filename)
+
+            if os.path.isfile(source_path):
+                shutil.copy2(source_path, destination_path)
+            else:
+                print(
+                    "Upozorenje: usporedni graf nije pronađen za "
+                    f"{genome_id}: {source_path}"
+                )
+
+    return cleanup_dir
 
 def evaluate_cleanup_against_truth(truth, suspicious):
     """
