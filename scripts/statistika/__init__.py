@@ -32,3 +32,7 @@ from statistika.assignment_evaluation import (
     write_assignment_per_genome_table,
     write_full_assignment_evaluation,
 )
+
+from statistika.evaluate_cleanup_truth import (
+    write_cleanup_truth_evaluation,
+)

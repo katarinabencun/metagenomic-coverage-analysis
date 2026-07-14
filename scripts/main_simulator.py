@@ -10,6 +10,7 @@ from statistika import (
     write_false_genome_coverage_stats,
     write_genome_truth_summary,
     write_full_assignment_evaluation,
+    write_cleanup_truth_evaluation,
 )
 
 from parse_i_coverage import (
@@ -383,6 +384,15 @@ def main():
         output_dir=statistika_dodatno_dir,
         filename="false_genome_coverage_stats.txt"
     )
+
+    if run_cleanup:
+        write_cleanup_truth_evaluation(
+            sim_counts=sim_counts,
+            genome_lengths=genome_lengths,
+            cleanup_summary=cleanup_summary,
+            output_dir=statistika_dodatno_dir,
+            filename="cleanup_truth_evaluation.txt"
+        )
 
     write_full_assignment_evaluation(
         fastq_path=fastq_path,

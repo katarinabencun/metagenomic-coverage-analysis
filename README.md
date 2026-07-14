@@ -39,7 +39,6 @@ Algoritam razmatra samo premještanja podržana postojećim poravnanjima iz PAF 
 - lokalne promjene pogreške profila pokrivenosti (SSE),
 - podrške jednoznačno mapiranih očitanja,
 - sumnjivosti izvornog i odredišnog genoma,
-- kvalitete poravnanja opisane oznakama MAPQ, AS i NM.
 
 Najbolja prihvatljiva premještanja primjenjuju se iterativno, uz ponovno računanje pokrivenosti nakon svake iteracije.
 
@@ -165,7 +164,7 @@ results/bucket5000_2b4s_c1_finalno/
 ```
 
 ### Grafovi profila pokrivenosti
-U mapi profile_kbp nalaze se grafovi za sve genome, ali odvojeno:
+U mapi `profile_kbp/` nalaze se grafovi za sve genome, ali odvojeno:
 
 - profil pokrivenosti dobiven iz simulatora
 - profil nakon početne diskretne dodjele
@@ -182,6 +181,7 @@ Mapa `statistika/dodatno/` sadrži detaljniju evaluaciju početnog i konačnog s
 - `redistribution_comparison.txt` – usporedba broja očitanja i osnovnih statistika pokrivenosti
 - `coverage_distance_to_simulator.txt` – MAE i RMSE profila pravih genoma u odnosu na simulator
 - `false_genome_coverage_stats.txt` – analiza pokrivenosti genoma koji nisu prisutni u simuliranom uzorku
+- `cleanup_truth_evaluation.txt` – evaluacija genoma označenih kao sumnjivi prema poznatom stanju iz simulatora
 - `assignment_evaluation/` – evaluacija točnosti dodjele pojedinačnih očitanja prema poznatom podrijetlu iz simulatora
 
 Podmapa `assignment_evaluation/` sadrži detaljnu tablicu po očitanju, matricu zamjene genoma, tablicu rezultata po genomu i tekstualni sažetak evaluacije.
@@ -192,8 +192,6 @@ Mapa `statistika/summaries/` sadrži sažetke ulaznog skupa i pojedinih faza obr
 - `summary_init_assign.txt` – sažetak početne diskretne dodjele očitanja
 - `redistribution_summary.txt` – parametri, iteracije i premještanja glavnog algoritma
 - `cleanup_simple_summary.txt` – sumnjivi genomi, vrijednosti cleanup signala i provedena premještanja
-
-> **Napomena:** Modul `evaluate_cleanup_truth.py` namijenjen je dodatnoj evaluaciji cleanup faze. Ne poziva se automatski iz skripte `main_simulator.py`, pa se pripadajući izvještaj ne generira pri standardnom pokretanju programa.
 
 ## Autorica
 
