@@ -140,7 +140,7 @@ def main():
     run_cleanup = not args.skip_cleanup
     use_cleanup_drainage = not args.without_drainage
 
-    results_dir = f"results/bucket{bucket_size}_{args.experiment_name}"
+    results_dir = f"results/{args.experiment_name}"
 
     statistika_dir = f"{results_dir}/statistika"
     statistika_osnovno_dir = f"{statistika_dir}/osnovno"
