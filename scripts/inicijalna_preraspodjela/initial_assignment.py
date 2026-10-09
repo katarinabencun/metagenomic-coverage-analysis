@@ -6,11 +6,11 @@ def get_best_alignments(alignments):
     if not alignments:
         return []
 
-    best_mapq = max(aln["mapq"] for aln in alignments)
+    best_score = max(aln["mapping_score"] for aln in alignments)
 
     return [
         aln for aln in alignments
-        if aln["mapq"] == best_mapq
+        if aln["mapping_score"] == best_score
     ]
 
 
@@ -60,7 +60,7 @@ def find_alignment_for_genome(best_alignments, genome_id):
             aln["genome_id"],
             aln["start"],
             aln["end"],
-            aln["mapq"]
+            aln["mapping_score"]
         )
     )
 
@@ -227,7 +227,7 @@ def write_initial_assignment_summary(
         f.write(f"Ukupan broj ocitanja u PAF-u: {summary['total_reads']}\n")
         f.write(f"Ukupan broj mapiranja prije dodjele: {summary['total_alignments_before']}\n")
         f.write(
-            "Broj najboljih MAPQ mapiranja nakon odbacivanja slabijih: "
+            "Broj najboljih mapiranja prema mapping scoreu: "
             f"{summary['total_best_alignments']}\n"
         )
         f.write(f"Broj konacno dodijeljenih ocitanja: {summary['assigned_reads_after']}\n\n")
@@ -240,7 +240,7 @@ def write_initial_assignment_summary(
         f.write("MAKNUTO / IGNORIRANO\n")
         f.write("-" * 70 + "\n")
         f.write(
-            "Slabija mapiranja ignorirana zbog losijeg MAPQ-a: "
+            "Slabija mapiranja ignorirana zbog losijeg mapping scorea: "
             f"{summary['ignored_weaker_alignments']}\n"
         )
         f.write(

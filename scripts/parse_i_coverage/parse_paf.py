@@ -60,6 +60,11 @@ def parse_paf_grouped_with_cigar(file_path):
                 start = int(fields[7])
                 end = int(fields[8])
                 mapq = int(fields[11])
+                nmatch = int(fields[9])
+                alen = int(fields[10])
+                if alen <= 0:
+                    continue
+                mapping_score = nmatch / alen
             except (IndexError, ValueError):
                 continue
 
@@ -71,6 +76,9 @@ def parse_paf_grouped_with_cigar(file_path):
                 "start": start,
                 "end": end,
                 "mapq": mapq,
+                "nmatch": nmatch,
+                "alen": alen,
+                "mapping_score": mapping_score,
                 "cigar": cigar,
                 "tp": tp,
                 "is_primary": tp == "P",
@@ -109,6 +117,11 @@ def parse_paf_grouped(file_path):
                 start_pos = int(fields[7])
                 end_pos = int(fields[8])
                 mapq = int(fields[11])
+                nmatch = int(fields[9])
+                alen = int(fields[10])
+                if alen <= 0:
+                    continue
+                mapping_score = nmatch / alen
             except (IndexError, ValueError):
                 continue
 
@@ -131,6 +144,9 @@ def parse_paf_grouped(file_path):
                 "query_length": query_length,
                 "query_start": query_start,
                 "query_end": query_end,
+                "nmatch": nmatch,
+                "alen": alen,
+                "mapping_score": mapping_score,
                 "raw_line": line.strip()
             })
 
