@@ -1,5 +1,9 @@
 import os
 import argparse
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont, PngImagePlugin
+from matplotlib import font_manager
 
 from statistika import (
     count_reads_simulator,
@@ -119,6 +123,32 @@ def parse_arguments():
     )
 
     return parser.parse_args()
+
+
+def label_experiment_outputs(results_dir, experiment_name):
+    results_dir = Path(results_dir)
+    header = f"Experiment: {experiment_name}\n\n".encode("utf-8")
+    for path in results_dir.rglob("*.txt"):
+        content = path.read_bytes()
+        if not content.startswith(header):
+            path.write_bytes(header + content)
+    font_path = font_manager.findfont("DejaVu Sans")
+    font = ImageFont.truetype(font_path, 16)
+    label = f"Experiment: {experiment_name}"
+    for path in results_dir.rglob("*.png"):
+        with Image.open(path) as image:
+            if image.info.get("experiment_label") == experiment_name:
+                continue
+            image = image.convert("RGB")
+            banner_height = 52
+            labeled = Image.new("RGB", (image.width, image.height + banner_height), "white")
+            labeled.paste(image, (0, banner_height))
+            draw = ImageDraw.Draw(labeled)
+            draw.text((20, 14), label, fill="black", font=font)
+            meta = PngImagePlugin.PngInfo()
+            meta.add_text("experiment_label", experiment_name)
+            labeled.save(path, pnginfo=meta)
+
 
 def main():
     args = parse_arguments()
@@ -410,6 +440,8 @@ def main():
         genome_lengths=genome_lengths,
         output_dir=f"{statistika_dodatno_dir}/assignment_evaluation"
     )
+
+    label_experiment_outputs(results_dir, args.experiment_name)
 
     print(f"Rezultati spremljeni u: {results_dir}")
 
