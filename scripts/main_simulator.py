@@ -140,7 +140,7 @@ def main():
     run_cleanup = not args.skip_cleanup
     use_cleanup_drainage = not args.without_drainage
 
-    results_dir = f"results/bucket{bucket_size}_{args.experiment_name}"
+    results_dir = f"results/{args.experiment_name}"
 
     statistika_dir = f"{results_dir}/statistika"
     statistika_osnovno_dir = f"{statistika_dir}/osnovno"
@@ -251,8 +251,8 @@ def main():
             # osnovni signal
             zero_start=0.40,
             zero_full=0.70,
-            long_zero_start=0.10,
-            long_zero_full=0.25,
+            long_zero_start=0.005,
+            long_zero_full=0.05,
 
             # otočni signal
             top_fraction=0.05,
