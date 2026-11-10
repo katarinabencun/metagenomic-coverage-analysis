@@ -16,6 +16,8 @@ from statistika import (
     write_full_assignment_evaluation,
     write_cleanup_truth_evaluation,
     organize_cleanup_comparison_images,
+    write_false_genome_remaining_reads,
+    write_true_genome_read_destinations,
 )
 
 from parse_i_coverage import (
@@ -440,6 +442,23 @@ def main():
         genome_lengths=genome_lengths,
         output_dir=f"{statistika_dodatno_dir}/assignment_evaluation"
     )
+
+    
+    write_true_genome_read_destinations(
+        fastq_path=fastq_path,
+        final_assignments=final_assignments,
+        output_dir=statistika_dodatno_dir,
+    )
+
+    if run_cleanup:
+        write_false_genome_remaining_reads(
+            fastq_path=fastq_path,
+            final_assignments=final_assignments,
+            sim_counts=sim_counts,
+            genome_lengths=genome_lengths,
+            cleanup_summary=cleanup_summary,
+            output_dir=statistika_dodatno_dir,
+        )
 
     label_experiment_outputs(results_dir, args.experiment_name)
 

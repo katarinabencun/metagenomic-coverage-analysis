@@ -37,3 +37,11 @@ from statistika.evaluate_cleanup_truth import (
     write_cleanup_truth_evaluation,
     organize_cleanup_comparison_images,
 )
+
+from statistika.false_genome_remaining_reads import (
+    write_false_genome_remaining_reads,
+)
+
+from statistika.true_genome_read_destinations import (
+    write_true_genome_read_destinations,
+)

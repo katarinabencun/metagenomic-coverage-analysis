@@ -13,63 +13,81 @@ def open_text_maybe_gzip(file_path):
     return open(file_path, "r")
 
 
-def parse_fastq_truth_with_read_id(file_path):
+def parse_fastq_origin_sets(file_path):
+    """Svaki FASTQ read -> svi genomi navedeni u simulatorovu zaglavlju.
+
+    Prazan tuple znaci random_seq/junk_seq bez genomskog podrijetla.
     """
-    Parsira FASTQ simulator datoteku i vraća stvarno podrijetlo svakog očitanja.
-
-    Izlaz:
-    {
-        read_id: {
-            "true_genome": genome_id,
-            "true_start": start,
-            "true_end": end
-        }
-    }
-
-    Pretpostavka:
-    - read_id je prvi token u FASTQ headeru, bez početnog znaka '@'
-    - simulator informacije su u drugom tokenu, kao i u postojećem parse_fastq kodu
-    """
-
-    truth = {}
-
+    origins = {}
     with open_text_maybe_gzip(file_path) as f:
         while True:
-            header = f.readline().strip()
+            header = f.readline()
+            if not header:
+                break
             seq = f.readline()
             plus = f.readline()
             qual = f.readline()
+            if not (seq and plus and qual):
+                raise ValueError("Nepotpun FASTQ zapis: " + header.strip())
+            if not header.startswith("@"):
+                raise ValueError("Neispravno FASTQ zaglavlje: " + header.strip())
+            parts = header.split()
+            read_id = parts[0][1:]
+            if read_id in origins:
+                raise ValueError(f"Duplicirani read_id u FASTQ-u: {read_id}")
+            genomes = []
+            for token in parts[1:]:
+                if not token.startswith("kraken:taxid|"):
+                    continue
+                fields = token.split("|")
+                if len(fields) < 3 or not fields[2]:
+                    raise ValueError(f"Neispravan simulatorov token: {token}")
+                genome_id = fields[2].split(",", 1)[0]
+                if genome_id not in genomes:
+                    genomes.append(genome_id)
+            origins[read_id] = tuple(genomes)
+    return origins
 
+
+def parse_fastq_truth_with_read_id(file_path):
+    """Evaluacijska istina: jedan ili vise dopustenih genoma po ocitanju.
+
+    true_genome ostaje prvi genomski izvor radi kompatibilnosti sa starim
+    tablicama; za tocnost se OBAVEZNO koristi true_genomes (svi izvori).
+    Očitanja bez genomskog izvora nisu u truth evaluaciji.
+    """
+    truth = {}
+    origins = parse_fastq_origin_sets(file_path)
+    positions = {}
+    with open_text_maybe_gzip(file_path) as f:
+        while True:
+            header = f.readline()
             if not header:
                 break
-
-            if not header.startswith("@"):
-                continue
-
+            for _ in range(3):
+                f.readline()
             parts = header.split()
-
-            if len(parts) < 2:
-                continue
-
-            try:
-                read_id = parts[0][1:]
-
-                genome_part = parts[1].split("|")[-1]
-                true_genome = genome_part.split(",")[0]
-
-                position_range = genome_part.split(",")[2]
-                true_start = int(position_range.split("-")[0])
-                true_end = int(position_range.split("-")[1])
-
-            except (IndexError, ValueError):
-                continue
-
-            truth[read_id] = {
-                "true_genome": true_genome,
-                "true_start": true_start,
-                "true_end": true_end,
-            }
-
+            read_id = parts[0][1:]
+            for token in parts[1:]:
+                if token.startswith("kraken:taxid|"):
+                    fields = token.split("|", 2)[-1].split(",")
+                    if len(fields) >= 3:
+                        try:
+                            start, end = map(int, fields[2].split("-", 1))
+                            positions[read_id] = (start, end)
+                        except ValueError:
+                            pass
+                    break
+    for read_id, genomes in origins.items():
+        if not genomes:
+            continue
+        truth[read_id] = {
+            "true_genome": genomes[0],
+            "true_genomes": genomes,
+            "is_multi_origin": len(genomes) > 1,
+            "true_start": positions.get(read_id, ("NA", "NA"))[0],
+            "true_end": positions.get(read_id, ("NA", "NA"))[1],
+        }
     return truth
 
 
@@ -95,8 +113,12 @@ def get_assigned_genome(assignments, read_id):
     return aln.get("genome_id")
 
 
-def is_correct_assignment(true_genome, assigned_genome):
-    return assigned_genome is not None and assigned_genome == true_genome
+def is_correct_assignment(true_genomes, assigned_genome):
+    if assigned_genome is None:
+        return False
+    if isinstance(true_genomes, str):
+        return assigned_genome == true_genomes
+    return assigned_genome in true_genomes
 
 
 def classify_read_status(initial_correct, final_correct, initial_genome, final_genome):
@@ -178,8 +200,8 @@ def write_read_assignment_table(
             initial_genome = get_assigned_genome(initial_assignments, read_id)
             final_genome = get_assigned_genome(final_assignments, read_id)
 
-            initial_correct = is_correct_assignment(true_genome, initial_genome)
-            final_correct = is_correct_assignment(true_genome, final_genome)
+            initial_correct = is_correct_assignment(true_info["true_genomes"], initial_genome)
+            final_correct = is_correct_assignment(true_info["true_genomes"], final_genome)
 
             status = classify_read_status(
                 initial_correct=initial_correct,
@@ -190,7 +212,7 @@ def write_read_assignment_table(
 
             f.write(
                 f"{read_id}\t"
-                f"{true_genome}\t"
+                f"{'|'.join(true_info['true_genomes'])}\t"
                 f"{true_info['true_start']}\t"
                 f"{true_info['true_end']}\t"
 
@@ -235,7 +257,7 @@ def build_assignment_confusion_matrices(
     final_matrix = defaultdict(int)
 
     for read_id, true_info in truth.items():
-        true_genome = true_info["true_genome"]
+        true_genome = "|".join(true_info["true_genomes"])
 
         initial_genome = get_assigned_genome(initial_assignments, read_id)
         final_genome = get_assigned_genome(final_assignments, read_id)
@@ -341,7 +363,8 @@ def evaluate_assignments_against_truth(
 
     for read_id, true_info in truth.items():
         true_genome = true_info["true_genome"]
-        true_counts_by_genome[true_genome] += 1
+        for origin_genome in true_info["true_genomes"]:
+            true_counts_by_genome[origin_genome] += 1
 
         initial_genome = get_assigned_genome(initial_assignments, read_id)
         final_genome = get_assigned_genome(final_assignments, read_id)
@@ -354,18 +377,18 @@ def evaluate_assignments_against_truth(
             final_assigned_count += 1
             final_assigned_by_genome[final_genome] += 1
 
-        initial_correct = is_correct_assignment(true_genome, initial_genome)
-        final_correct = is_correct_assignment(true_genome, final_genome)
+        initial_correct = is_correct_assignment(true_info["true_genomes"], initial_genome)
+        final_correct = is_correct_assignment(true_info["true_genomes"], final_genome)
 
         if initial_correct:
             initial_correct_count += 1
-            initial_correct_by_true_genome[true_genome] += 1
+            initial_correct_by_true_genome[initial_genome] += 1
         elif initial_genome is not None:
             initial_wrong_to_genome[initial_genome] += 1
 
         if final_correct:
             final_correct_count += 1
-            final_correct_by_true_genome[true_genome] += 1
+            final_correct_by_true_genome[final_genome] += 1
         elif final_genome is not None:
             final_wrong_to_genome[final_genome] += 1
 
@@ -378,11 +401,7 @@ def evaluate_assignments_against_truth(
 
         status_counts[status] += 1
 
-    true_genomes = {
-        genome_id
-        for genome_id, count in true_counts_by_genome.items()
-        if count > 0
-    }
+    true_genomes = {g for info in truth.values() for g in info["true_genomes"]}
 
     false_genomes = {
         genome_id
@@ -541,7 +560,7 @@ def write_assignment_evaluation_summary(
         f.write("-" * 80 + "\n")
         f.write("Simulator / FASTQ daje stvarni genom iz kojeg je ocitanje generirano.\n")
         f.write("Inicijalna dodjela i finalna preraspodjela usporeduju se s tim stvarnim genomom.\n")
-        f.write("Dodjela je tocna ako je assigned_genome jednak true_genome.\n\n")
+        f.write("Dodjela je tocna ako je assigned_genome jedan od navedenih genoma podrijetla (ukljucujuci kimere).\n\n")
 
         f.write("UKUPNI SAZETAK\n")
         f.write("-" * 80 + "\n")
