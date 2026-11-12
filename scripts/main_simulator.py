@@ -274,7 +274,7 @@ def main():
             zero_start=0.04,
             zero_full=0.08,
             long_zero_start=0.015,
-            long_zero_full=0.4,
+            long_zero_full=0.1,
         )
     else:
         final_assignments = dict(initial_assignments)
@@ -296,8 +296,8 @@ def main():
             # osnovni signal
             zero_start=0.40,
             zero_full=0.70,
-            long_zero_start=0.005,
-            long_zero_full=0.05,
+            long_zero_start=0.015,
+            long_zero_full=0.1,
 
             # otočni signal
             top_fraction=0.05,
