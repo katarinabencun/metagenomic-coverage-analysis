@@ -2,14 +2,16 @@ import os
 from collections import Counter, defaultdict
 from statistika.assignment_evaluation import parse_fastq_origin_sets
 from statistika.chimera_types import parse_fastq_chimera_types, format_chimera_counts
+from statistika.ani_lookup import format_ani_comparison
 
 
-def write_true_genome_read_destinations(fastq_path, final_assignments, output_dir):
+def write_true_genome_read_destinations(fastq_path, final_assignments, output_dir, ani_pairs=None):
     """Odredista ocitanja po stvarnom genomu, uz oznake vrsta kimera.
 
     Ocitanje s dva izvorna genoma pojavljuje se u odjeljku oba genoma.
     """
     os.makedirs(output_dir, exist_ok=True)
+    ani_pairs = ani_pairs if ani_pairs is not None else {}
     origins = parse_fastq_origin_sets(fastq_path)
     chimera_types = parse_fastq_chimera_types(fastq_path)
     destinations = defaultdict(Counter)
@@ -49,6 +51,10 @@ def write_true_genome_read_destinations(fastq_path, final_assignments, output_di
             for genome, n in sorted(counts.items(), key=lambda x: (-x[1], x[0])):
                 if genome not in (true_genome, "UNASSIGNED"):
                     out.write(f"    {genome}: {n}{format_chimera_counts(chimera_counts[true_genome][genome])}\n")
+                    comparison = format_ani_comparison(
+                        ani_pairs, true_genome, genome, "AF_true", "AF_final"
+                    )
+                    out.write(f"        {comparison}\n")
             n = counts.get("UNASSIGNED", 0)
             out.write(f"    UNASSIGNED: {n}{format_chimera_counts(chimera_counts[true_genome]['UNASSIGNED'])}\n")
             out.write("\n" + "-" * 60 + "\n\n")

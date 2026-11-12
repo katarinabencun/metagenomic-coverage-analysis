@@ -5,6 +5,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, PngImagePlugin
 from matplotlib import font_manager
 
+from statistika.ani_lookup import resolve_ani_table_path, load_ani_pairs
+
 from statistika import (
     count_reads_simulator,
     coverage_stats,
@@ -101,6 +103,13 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--ani-table",
+        default=None,
+        help=("Neobavezna putanja do ani_pairs.tsv; ako se izostavi, "
+              "trazi se data/ani/<dataset>/ani_pairs.tsv prema --fasta putanji."),
+    )
+
+    parser.add_argument(
         "--without-cigar",
         action="store_true",
         help="PAF datoteka ne sadrži CIGAR zapis."
@@ -186,6 +195,10 @@ def main():
     os.makedirs(statistika_summaries_dir, exist_ok=True)
 
     genome_lengths = get_genome_lengths(fasta_path)
+
+    # ANI/AF podaci sluze iskljucivo za tri dodatna tekstualna izvjestaja.
+    ani_path = resolve_ani_table_path(fasta_path, explicit_path=args.ani_table)
+    ani_pairs = load_ani_pairs(ani_path, required=(args.ani_table is not None))
 
     # 1. Simulator / FASTQ
     reads_sim = list(parse_fastq(fastq_path))
@@ -448,6 +461,7 @@ def main():
         fastq_path=fastq_path,
         final_assignments=final_assignments,
         output_dir=statistika_dodatno_dir,
+        ani_pairs=ani_pairs,
     )
 
     if run_cleanup:
@@ -458,6 +472,7 @@ def main():
             genome_lengths=genome_lengths,
             cleanup_summary=cleanup_summary,
             output_dir=statistika_dodatno_dir,
+            ani_pairs=ani_pairs,
         )
 
     label_experiment_outputs(results_dir, args.experiment_name)
